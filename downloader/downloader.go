@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"launchpad.net/tomb"
+	"github.com/go-tomb/tomb"
 )
 
 var logger = loggo.GetLogger("juju.downloader")
