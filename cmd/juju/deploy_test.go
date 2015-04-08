@@ -459,6 +459,6 @@ func (s *DeployCharmStoreSuite) TestNonPublicCharm(c *gc.C) {
 func (s *DeployCharmStoreSuite) TestNonPublicCharmAccessDenied(c *gc.C) {
 	url, _ := s.uploadCharm(c, "cs:~myuser/trusty/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, "bob")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress", "wordpress")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 }
