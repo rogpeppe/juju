@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -139,6 +140,16 @@ func resolveCharmURL(curlStr string, csParams charmrepo.NewCharmStoreParams, rep
 		logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
 		return nil, nil, errors.Errorf("cannot resolve series for charm: %q", ref)
 	}
+	if ref.Series != "" && ref.Revision != -1 {
+		// The URL is already fully resolved; do not
+		// bother with an unnecessary round-trip to the
+		// charm store.
+		curl, err := ref.URL("")
+		if err != nil {
+			panic(err)
+		}
+		return curl, repo, nil
+	}
 	curl, err := repo.Resolve(ref)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -164,15 +175,15 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 		curl = stateCurl
 	case "cs":
 		if err := client.AddCharm(curl); err != nil {
-			if !isBakeryError(err) {
-				return nil, err
+			if !params.IsCodeUnauthorized(err) {
+				return nil, errors.Mask(err)
 			}
 			m, err := csclient.authorize(curl)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Mask(err)
 			}
 			if err := client.AddCharmWithAuthorization(curl, m); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Mask(err)
 			}
 		}
 	default:
@@ -180,12 +191,6 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	}
 	ctx.Infof("Added charm %q to the environment.", curl)
 	return curl, nil
-}
-
-// isBakeryError reports whether the given error is a discharge required or
-// interaction required response.
-func isBakeryError(err error) bool {
-	return httpbakery.IsDischargeError(err) || httpbakery.IsInteractionError(err)
 }
 
 // charmStoreClient is called to obtain a charm store client including the

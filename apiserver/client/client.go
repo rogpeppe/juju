@@ -1300,6 +1300,10 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 	)
 	downloadedCharm, err := repo.Get(charmURL)
 	if err != nil {
+		cause := errors.Cause(err)
+		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
+			return errors.NewUnauthorized(err, "")
+		}
 		return errors.Trace(err)
 	}
 

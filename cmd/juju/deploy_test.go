@@ -6,6 +6,8 @@ package main
 import (
 	"io/ioutil"
 	"strings"
+	"net/http"
+	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -377,24 +379,34 @@ func setupConfigFile(c *gc.C, dir string) string {
 type DeployCharmStoreSuite struct {
 	testing.JujuConnSuite
 	srv *charmstoretesting.Server
+	discharger *bakerytest.Discharger
 }
 
 var _ = gc.Suite(&DeployCharmStoreSuite{})
+
+const (
+	clientUserCookie = "client"
+	clientUserName = "client-username"
+)
 
 func (s *DeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Set up the third party discharger.
-	discharger := bakerytest.NewDischarger(nil, func(cond string, arg string) ([]checkers.Caveat, error) {
+	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
+		cookie, err := req.Cookie(clientUserCookie)
+		if err != nil {
+			return nil, errors.New("discharge denied to non-clients")
+		}
 		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "myuser"),
+			checkers.DeclaredCaveat("username", cookie.Value),
 		}, nil
 	})
 
 	// Set up the charm store testing server.
 	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
-		IdentityLocation: discharger.Location(),
-		PublicKeyLocator: discharger,
+		IdentityLocation: s.discharger.Location(),
+		PublicKeyLocator: s.discharger,
 	})
 
 	// Initialize the charm cache dir.
@@ -404,8 +416,20 @@ func (s *DeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	original := charmStoreClient
 	s.PatchValue(&charmStoreClient, func() (*csClient, error) {
 		csclient, err := original()
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return nil, err
+		}
 		csclient.params.URL = s.srv.URL()
+		// Add a cookie so that the discharger can detect whether the
+		// HTTP client is the juju environment or the juju client.
+		lurl, err := url.Parse(s.discharger.Location())
+		if err != nil {
+			panic(err)
+		}
+		csclient.params.HTTPClient.Jar.SetCookies(lurl, []*http.Cookie{{
+			Name: clientUserCookie,
+			Value: clientUserName,
+		}})
 		return csclient, nil
 	})
 
@@ -414,7 +438,7 @@ func (s *DeployCharmStoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DeployCharmStoreSuite) TearDownTest(c *gc.C) {
-	// Close the charm store testing server.
+	s.discharger.Close()
 	s.srv.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
@@ -448,17 +472,24 @@ func (s *DeployCharmStoreSuite) TestPublicCharm(c *gc.C) {
 }
 
 func (s *DeployCharmStoreSuite) TestNonPublicCharm(c *gc.C) {
-	url, _ := s.uploadCharm(c, "cs:~myuser/trusty/wordpress-47", "wordpress")
-	s.changeReadPerm(c, url, "myuser")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress", "wordpress")
+	url, _ := s.uploadCharm(c, "cs:~bob/trusty/wordpress-47", "wordpress")
+	s.changeReadPerm(c, url, clientUserName)
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~bob/trusty/wordpress", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.Trim(coretesting.Stderr(ctx), "\n")
-	c.Assert(output, gc.Equals, `Added charm "cs:~myuser/trusty/wordpress-47" to the environment.`)
+	c.Assert(output, gc.Equals, `Added charm "cs:~bob/trusty/wordpress-47" to the environment.`)
 }
 
 func (s *DeployCharmStoreSuite) TestNonPublicCharmAccessDenied(c *gc.C) {
 	url, _ := s.uploadCharm(c, "cs:~myuser/trusty/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, "bob")
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress", "wordpress")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `cannot resolve charm URL "cs:~myuser/trusty/wordpress": cannot get "/~myuser/trusty/wordpress/meta/any\?include=id": unauthorized: access denied for user "client-username"`)
+}
+
+func (s *DeployCharmStoreSuite) TestNonPublicCharmAccessDeniedWithResolvedURL(c *gc.C) {
+	url, _ := s.uploadCharm(c, "cs:~myuser/trusty/wordpress-47", "wordpress")
+	s.changeReadPerm(c, url, "bob")
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress-47", "wordpress")
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~myuser/trusty/wordpress-47": cannot get archive: unauthorized: access denied for user "client-username"`)
 }

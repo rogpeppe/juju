@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -1579,6 +1580,7 @@ type clientRepoSuite struct {
 	// macaroons for. If it is empty, no caveats will be discharged.
 	dischargeUser string
 
+	discharger *bakerytest.Discharger
 	srv *charmstoretesting.Server
 }
 
@@ -1586,7 +1588,7 @@ var _ = gc.Suite(&clientRepoSuite{})
 
 func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	discharger := bakerytest.NewDischarger(nil, func(cond string, arg string) ([]checkers.Caveat, error) {
+	s.discharger = bakerytest.NewDischarger(nil, func(_ *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
 		if s.dischargeUser == "" {
 			return nil, fmt.Errorf("discharge denied")
 		}
@@ -1595,8 +1597,8 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 		}, nil
 	})
 	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
-		IdentityLocation: discharger.Location(),
-		PublicKeyLocator: discharger,
+		IdentityLocation: s.discharger.Location(),
+		PublicKeyLocator: s.discharger,
 	})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.PatchValue(client.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
@@ -1606,6 +1608,7 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *clientRepoSuite) TearDownTest(c *gc.C) {
+	s.discharger.Close()
 	s.srv.Close()
 	s.baseSuite.TearDownTest(c)
 }
@@ -1848,8 +1851,8 @@ func (s *clientRepoSuite) assertPrincipalDeployed(c *gc.C, serviceName string, c
 			bundle.Meta().Storage[name] = bundleMeta
 		}
 	}
-	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
-	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
+	c.Assert(charm.Meta(), jc.DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), jc.DeepEquals, bundle.Config())
 
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
