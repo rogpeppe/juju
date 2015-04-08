@@ -1300,7 +1300,7 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 	)
 	downloadedCharm, err := repo.Get(charmURL)
 	if err != nil {
-		return errors.Mask(err)
+		return errors.Trace(err)
 	}
 
 	// Open it and calculate the SHA256 hash.

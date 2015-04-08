@@ -14,7 +14,7 @@ import (
 	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"gopkg.in/juju/charmstore.v4"
-	charmstoretesting "gopkg.in/juju/charmstore.v4/testing"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -32,12 +32,12 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	original := charmStoreParams
-	s.PatchValue(&charmStoreParams, func() (charmrepo.NewCharmStoreParams, error) {
-		csParams, err := original()
+	original := charmStoreClient
+	s.PatchValue(&charmStoreClient, func() (*csClient, error) {
+		csclient, err := original()
 		c.Assert(err, jc.ErrorIsNil)
-		csParams.URL = s.srv.URL()
-		return csParams, nil
+		csclient.params.URL = s.srv.URL()
+		return csclient, nil
 	})
 }
 

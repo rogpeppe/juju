@@ -4,11 +4,8 @@
 package client_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"regexp"
 	"sort"
 	"strconv"
@@ -24,11 +21,10 @@ import (
 	"gopkg.in/juju/charm.v5-unstable"
 	"gopkg.in/juju/charm.v5-unstable/charmrepo"
 	"gopkg.in/juju/charmstore.v4"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
 	"gopkg.in/juju/charmstore.v4/csclient"
-	charmstoretesting "gopkg.in/juju/charmstore.v4/testing"
 	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v0/bakerytest"
-	"gopkg.in/macaroon-bakery.v0/httpbakery"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
@@ -1601,8 +1597,6 @@ func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
 		IdentityLocation: discharger.Location(),
 		PublicKeyLocator: discharger,
-		AuthUsername:     "test-user",
-		AuthPassword:     "test-password",
 	})
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	s.PatchValue(client.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
@@ -3549,31 +3543,20 @@ func (s *clientRepoSuite) TestAddCharm(c *gc.C) {
 func (s *clientRepoSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	// Upload a new charm to the charm store.
 	curl, _ := s.uploadCharm(c, "cs:~restricted/precise/wordpress-3", "wordpress")
-	client := csclient.New(csclient.Params{
-		URL: s.srv.URL(),
-	})
 
 	// Change permissions on the new charm such that only bob
 	// can read from it.
 	s.dischargeUser = "restricted"
-	data, err := json.Marshal([]string{"bob"})
-	c.Assert(err, gc.IsNil)
-	body := httpbakery.SeekerBody(bytes.NewReader(data))
-	req, err := http.NewRequest("PUT", "", nil)
-	c.Assert(err, gc.IsNil)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.DoWithBody(req, "/~restricted/wordpress/meta/perm/read", body)
-	c.Assert(err, gc.IsNil)
-	resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	err := s.srv.NewClient().Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to add a charm to the environment without authorization.
 	s.dischargeUser = ""
 	err = s.APIState.Client().AddCharm(curl)
-	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": cannot discharge: discharge denied`)
+	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from ".*": third party refused discharge: cannot discharge: discharge denied`)
 
 	tryAs := func(user string) error {
-		client = csclient.New(csclient.Params{
+		client := csclient.New(csclient.Params{
 			URL: s.srv.URL(),
 		})
 		s.dischargeUser = user

@@ -13,6 +13,10 @@ import (
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5-unstable"
+	"gopkg.in/juju/charm.v5-unstable/charmrepo"
+	"gopkg.in/juju/charmstore.v4"
+	"gopkg.in/juju/charmstore.v4/charmstoretesting"
+	"gopkg.in/juju/charmstore.v4/csclient"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
@@ -366,4 +370,65 @@ func setupConfigFile(c *gc.C, dir string) string {
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, jc.ErrorIsNil)
 	return path
+}
+
+type DeployCharmStoreSuite struct {
+	testing.JujuConnSuite
+	srv *charmstoretesting.Server
+}
+
+var _ = gc.Suite(&DeployCharmStoreSuite{})
+
+func (s *DeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	// Set up the charm store testing server.
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
+
+	// Initialize the charm cache dir.
+	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
+
+	// Point the CLI to the charm store testing server.
+	original := charmStoreClient
+	s.PatchValue(&charmStoreClient, func() (*csClient, error) {
+		csclient, err := original()
+		c.Assert(err, jc.ErrorIsNil)
+		csclient.params.URL = s.srv.URL()
+		return csclient, nil
+	})
+
+	// Point the Juju API server to the charm store testing server.
+	s.PatchValue(&csclient.ServerURL, s.srv.URL())
+}
+
+func (s *DeployCharmStoreSuite) TearDownTest(c *gc.C) {
+	// Close the charm store testing server.
+	s.srv.Close()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+// uploadCharm adds a charm with the given URL and name to the charm store.
+func (s *DeployCharmStoreSuite) uploadCharm(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
+	id := charm.MustParseReference(url)
+	promulgated := false
+	if id.User == "" {
+		id.User = "who"
+		promulgated = true
+	}
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	id = s.srv.UploadCharm(c, ch, id, promulgated)
+	return (*charm.URL)(id), ch
+}
+
+// changeReadPerm changes the read permission of the given charm URL.
+// The charm must be present in the testing charm store.
+func (s *DeployCharmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ...string) {
+	err := s.srv.NewClient().Put("/"+url.Path()+"/meta/perm/read", perms)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployCharmStoreSuite) TestPublicCharm(c *gc.C) {
+	s.uploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
+	err := runDeploy(c, "cs:trusty/wordpress", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
 }
