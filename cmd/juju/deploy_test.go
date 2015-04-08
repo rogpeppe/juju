@@ -17,6 +17,8 @@ import (
 	"gopkg.in/juju/charmstore.v4"
 	"gopkg.in/juju/charmstore.v4/charmstoretesting"
 	"gopkg.in/juju/charmstore.v4/csclient"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v0/bakerytest"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/service"
@@ -382,8 +384,18 @@ var _ = gc.Suite(&DeployCharmStoreSuite{})
 func (s *DeployCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
+	// Set up the third party discharger.
+	discharger := bakerytest.NewDischarger(nil, func(cond string, arg string) ([]checkers.Caveat, error) {
+		return []checkers.Caveat{
+			checkers.DeclaredCaveat("username", "myuser"),
+		}, nil
+	})
+
 	// Set up the charm store testing server.
-	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{})
+	s.srv = charmstoretesting.OpenServer(c, s.Session, charmstore.ServerParams{
+		IdentityLocation: discharger.Location(),
+		PublicKeyLocator: discharger,
+	})
 
 	// Initialize the charm cache dir.
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
@@ -429,6 +441,24 @@ func (s *DeployCharmStoreSuite) changeReadPerm(c *gc.C, url *charm.URL, perms ..
 
 func (s *DeployCharmStoreSuite) TestPublicCharm(c *gc.C) {
 	s.uploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
-	err := runDeploy(c, "cs:trusty/wordpress", "wordpress")
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:trusty/wordpress", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.Trim(coretesting.Stderr(ctx), "\n")
+	c.Assert(output, gc.Equals, `Added charm "cs:trusty/wordpress-42" to the environment.`)
+}
+
+func (s *DeployCharmStoreSuite) TestNonPublicCharm(c *gc.C) {
+	url, _ := s.uploadCharm(c, "cs:~myuser/trusty/wordpress-47", "wordpress")
+	s.changeReadPerm(c, url, "myuser")
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.Trim(coretesting.Stderr(ctx), "\n")
+	c.Assert(output, gc.Equals, `Added charm "cs:~myuser/trusty/wordpress-47" to the environment.`)
+}
+
+func (s *DeployCharmStoreSuite) TestNonPublicCharmAccessDenied(c *gc.C) {
+	url, _ := s.uploadCharm(c, "cs:~myuser/trusty/wordpress-47", "wordpress")
+	s.changeReadPerm(c, url, "bob")
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~myuser/trusty/wordpress", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 }
