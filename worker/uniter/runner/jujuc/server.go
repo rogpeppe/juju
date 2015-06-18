@@ -97,6 +97,8 @@ type Request struct {
 	Dir         string
 	CommandName string
 	Args        []string
+	Stdin []byte
+	HasStdin bool
 }
 
 // CmdGetter looks up a Command implementation connected to a particular Context.
@@ -129,9 +131,11 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
 		Dir:    req.Dir,
-		Stdin:  &stdin,
 		Stdout: &stdout,
 		Stderr: &stderr,
+	}
+	if req.HasStdin {
+		ctx.Stdin = bytes.NewReader(req.Stdin)
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()

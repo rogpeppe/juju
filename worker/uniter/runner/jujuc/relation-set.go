@@ -117,7 +117,9 @@ func (c *RelationSetCommand) handleSettingsFile(ctx *cmd.Context) error {
 	if c.settingsFile.Path == "" {
 		return nil
 	}
-
+	if c.settingsFile.IsStdin() && ctx.Stdin == nil {
+		return ErrRequiresStdin
+	}
 	file, err := c.settingsFile.Open(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -136,6 +138,10 @@ func (c *RelationSetCommand) handleSettingsFile(ctx *cmd.Context) error {
 	c.Settings = settings
 	return nil
 }
+
+// ErrRequiresStdin is returned from a jujuc command when the
+// command requires standard input to be supplied.
+var ErrRequiresStdin = fmt.Errorf("hook tool requires stdin to be supplied")
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	if c.formatFlag != "" {

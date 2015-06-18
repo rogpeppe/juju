@@ -100,6 +100,14 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	defer client.Close()
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
+	if err == rpc.ServerError(jujuc.ErrRequiresStdin.Error()) {
+		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("cannot read stdin")
+		}
+		req.HasStdin = true
+		err = client.Call("Jujuc.Main", req, &resp)
+	}
 	if err != nil {
 		return
 	}
