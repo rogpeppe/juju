@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net"
 
-	"golang.org/x/net/websocket"
+	"github.com/gorilla/websocket"
 )
 
 // NewWebsocket returns an rpc codec that uses the given websocket
@@ -18,11 +18,11 @@ type wsJSONConn struct {
 }
 
 func (conn wsJSONConn) Send(msg interface{}) error {
-	return websocket.JSON.Send(conn.conn, msg)
+	return conn.conn.WriteJSON(msg)
 }
 
 func (conn wsJSONConn) Receive(msg interface{}) error {
-	return websocket.JSON.Receive(conn.conn, msg)
+	return conn.conn.ReadJSON(msg)
 }
 
 func (conn wsJSONConn) Close() error {
