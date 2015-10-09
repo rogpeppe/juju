@@ -175,15 +175,23 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
+//
+// The Server will close the listener when it exits, even if returns an error.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
 	l, ok := lis.(*net.TCPListener)
 	if !ok {
 		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
 	}
-	return newServer(s, l, cfg)
+	srv, err := newServer(s, l, cfg)
+	if err != nil {
+		// There is no running server around to close the listener.
+		lis.Close()
+		return nil, errors.Trace(err)
+	}
+	return srv, nil
 }
 
-func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (*Server, error) {
+func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
 	envCfg, err := s.EnvironConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get environment config")
