@@ -94,19 +94,20 @@ func AreUpgradesDefined(from version.Number) bool {
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, targets []Target, context Context) error {
+	logger.Errorf("performing upgrade")
 	if hasStateTarget(targets) {
 		ops := newStateUpgradeOpsIterator(from)
-		if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
+		if err := runUpgradeSteps(ops, targets, nil); err != nil {
 			return err
 		}
 	}
 
 	ops := newUpgradeOpsIterator(from)
-	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {
+	if err := runUpgradeSteps(ops, targets, nil); err != nil {
 		return err
 	}
 
-	logger.Infof("All upgrade steps completed successfully")
+	logger.Errorf("All upgrade steps completed successfully")
 	return nil
 }
 
@@ -130,7 +131,8 @@ func runUpgradeSteps(ops *opsIterator, targets []Target, context Context) error 
 	for ops.Next() {
 		for _, step := range ops.Get().Steps() {
 			if targetsMatch(targets, step.Targets()) {
-				logger.Infof("running upgrade step: %v", step.Description())
+				logger.Errorf("running upgrade step: %v", step.Description())
+				continue
 				if err := step.Run(context); err != nil {
 					logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
 					return &upgradeError{

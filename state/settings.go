@@ -288,8 +288,9 @@ func readSettingsDocInto(st *State, key string, out interface{}) error {
 	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
+	logger.Infof("readSettingsDocInto getting from key %#v", st.docID(key))
 	err := settings.FindId(st.docID(key)).One(out)
-
+	logger.Infof("-> %v", err)
 	// This is required to allow loading of environ settings before the
 	// environment UUID migration has been applied to the settings collection.
 	// Without this, an agent's version cannot be read, blocking the upgrade.

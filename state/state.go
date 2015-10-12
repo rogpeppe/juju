@@ -330,7 +330,14 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 		return nil, errors.Trace(err)
 	}
 	attrs := settings.Map()
-	return config.New(config.NoDefaults, attrs)
+	logger.Infof("before config.New, attrs %#v", attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
+	if err != nil {
+		logger.Infof("cannot make config from state config: %v", err)
+		return nil, err
+	}
+	logger.Infof("that turns out to be ok in fact")
+	return cfg, nil
 }
 
 // checkEnvironConfig returns an error if the config is definitely invalid.

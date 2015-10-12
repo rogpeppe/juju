@@ -137,6 +137,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	case <-c.UpgradeComplete:
 		// Our work is already done (we're probably being restarted
 		// because the API connection has gone down), so do nothing.
+		logger.Infof("upgrade worker completed because upgrade is already complete")
 		return nil
 	default:
 	}
@@ -169,7 +170,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	if c.isStateServer {
 		var err error
 		if c.st, err = openStateForUpgrade(c.agent, c.agentConfig); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		defer c.st.Close()
 
@@ -221,9 +222,10 @@ var agentTerminating = errors.New("machine agent is terminating")
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
 func (c *upgradeWorkerContext) runUpgrades() error {
+	logger.Infof("upgradeWorkerContext.runUpgrades")
 	upgradeInfo, err := c.prepareForUpgrade()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if wrench.IsActive("machine-agent", "fail-upgrade") {
@@ -231,11 +233,11 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 	}
 
 	if err := c.agent.ChangeConfig(c.runUpgradeSteps); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if err := c.finaliseUpgrade(upgradeInfo); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

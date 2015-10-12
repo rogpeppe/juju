@@ -446,6 +446,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
 	}
+	logger.Infof("starting APIWorker")
 	a.runner.StartWorker("api", a.APIWorker)
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
@@ -678,6 +679,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 
 	runner := newConnRunner(st)
 
+	logger.Infof("API worker starting upgrader and upgrade-steps worker")
 	// Run the agent upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", a.agentUpgraderWorkerStarter(st.Upgrader(), agentConfig))
