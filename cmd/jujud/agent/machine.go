@@ -638,10 +638,12 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
+	logger.Infof("calling apicaller.OpenAPIState")
 	st, entity, err := apicaller.OpenAPIState(a)
 	if err != nil {
 		return nil, err
 	}
+	logger.Infof("opened API state")
 	reportOpenedAPI(st)
 
 	defer func() {
@@ -658,17 +660,21 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 		}
 	}()
 
+	logger.Infof("getting agent config")
 	agentConfig := a.CurrentConfig()
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
+			logger.Infof("needs state")
 			info, err := st.Agent().StateServingInfo()
 			if err != nil {
 				return nil, fmt.Errorf("cannot get state serving info: %v", err)
 			}
+			logger.Infof("changing config")
 			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(info)
 				return nil
 			})
+			logger.Infof("changed config")
 			if err != nil {
 				return nil, err
 			}
@@ -676,7 +682,7 @@ func (a *MachineAgent) APIWorker() (_ worker.Worker, err error) {
 			break
 		}
 	}
-
+	logger.Infof("newConnRunner")
 	runner := newConnRunner(st)
 
 	logger.Infof("API worker starting upgrader and upgrade-steps worker")
