@@ -129,11 +129,6 @@ func resolveCharmStoreEntityURL(urlStr string, csParams charmrepo.NewCharmStoreP
 		return nil, nil, errors.Trace(err)
 	}
 	repo = config.SpecializeCharmRepo(repo, conf)
-	if ref.Series == "" {
-		if defaultSeries, ok := conf.DefaultSeries(); ok {
-			ref.Series = defaultSeries
-		}
-	}
 	if ref.Schema == "local" && ref.Series == "" {
 		possibleURL := *ref
 		possibleURL.Series = config.LatestLtsSeries()
