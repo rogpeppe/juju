@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+var _ ClientStore = (*store)(nil)
+
 var logger = loggo.GetLogger("juju.jujuclient")
 
 // A second should be enough to write or read any files. But
@@ -241,233 +243,33 @@ func (s *store) RemoveController(name string) error {
 }
 
 // UpdateModel implements ModelUpdater.
-func (s *store) UpdateModel(controllerName, accountName, modelName string, details ModelDetails) error {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateModelDetails(details); err != nil {
-		return errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	return errors.Trace(updateAccountModels(
-		controllerName, accountName,
-		func(models *AccountModels) (bool, error) {
-			oldDetails, ok := models.Models[modelName]
-			if ok && details == oldDetails {
-				return false, nil
-			}
-			models.Models[modelName] = details
-			return true, nil
-		},
-	))
+func (s *store) UpdateModel(controllerName, modelName string, details ModelDetails) error {
+	panic("not implemented")
 }
 
 // SetCurrentModel implements ModelUpdater.
-func (s *store) SetCurrentModel(controllerName, accountName, modelName string) error {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	return errors.Trace(updateAccountModels(
-		controllerName, accountName,
-		func(models *AccountModels) (bool, error) {
-			if models.CurrentModel == modelName {
-				return false, nil
-			}
-			if _, ok := models.Models[modelName]; !ok {
-				return false, errors.NotFoundf(
-					"model %s:%s:%s",
-					controllerName,
-					accountName,
-					modelName,
-				)
-			}
-			models.CurrentModel = modelName
-			return true, nil
-		},
-	))
+func (s *store) SetCurrentModel(controllerName, modelName string) error {
+	panic("not implemented")
 }
 
 // AllModels implements ModelGetter.
-func (s *store) AllModels(controllerName, accountName string) (map[string]ModelDetails, error) {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	all, err := ReadModelsFile(JujuModelsPath())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerAccountModels, ok := all[controllerName]
-	if !ok {
-		return nil, errors.NotFoundf(
-			"models for controller %s",
-			controllerName,
-		)
-	}
-	accountModels, ok := controllerAccountModels.AccountModels[accountName]
-	if !ok {
-		return nil, errors.NotFoundf(
-			"models for account %s on controller %s",
-			accountName, controllerName,
-		)
-	}
-	return accountModels.Models, nil
+func (s *store) AllModels(controllerName string) (map[string]ModelDetails, error) {
+	panic("not implemented")
 }
 
 // CurrentModel implements ModelGetter.
-func (s *store) CurrentModel(controllerName, accountName string) (string, error) {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return "", errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	all, err := ReadModelsFile(JujuModelsPath())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	controllerAccountModels, ok := all[controllerName]
-	if !ok {
-		return "", errors.NotFoundf(
-			"current model for controller %s",
-			controllerName,
-		)
-	}
-	accountModels, ok := controllerAccountModels.AccountModels[accountName]
-	if !ok || accountModels.CurrentModel == "" {
-		return "", errors.NotFoundf(
-			"current model for account %s on controller %s",
-			accountName, controllerName,
-		)
-	}
-	return accountModels.CurrentModel, nil
+func (s *store) CurrentModel(controllerName string) (string, error) {
+	panic("not implemented")
 }
 
 // ModelByName implements ModelGetter.
-func (s *store) ModelByName(controllerName, accountName, modelName string) (*ModelDetails, error) {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := ValidateModelName(modelName); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	all, err := ReadModelsFile(JujuModelsPath())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerAccountModels, ok := all[controllerName]
-	if !ok {
-		return nil, errors.NotFoundf(
-			"models for controller %s",
-			controllerName,
-		)
-	}
-	accountModels, ok := controllerAccountModels.AccountModels[accountName]
-	if !ok {
-		return nil, errors.NotFoundf(
-			"models for account %s on controller %s",
-			accountName, controllerName,
-		)
-	}
-	details, ok := accountModels.Models[modelName]
-	if !ok {
-		return nil, errors.NotFoundf(
-			"model %s:%s:%s",
-			controllerName,
-			accountName,
-			modelName,
-		)
-	}
-	return &details, nil
+func (s *store) ModelByName(controllerName, modelName string) (*ModelDetails, error) {
+	panic("not implemented")
 }
 
 // RemoveModel implements ModelRemover.
-func (s *store) RemoveModel(controllerName, accountName, modelName string) error {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	return errors.Trace(updateAccountModels(
-		controllerName, accountName,
-		func(models *AccountModels) (bool, error) {
-			if _, ok := models.Models[modelName]; !ok {
-				return false, errors.NotFoundf(
-					"model %s:%s:%s",
-					controllerName,
-					accountName,
-					modelName,
-				)
-			}
-			delete(models.Models, modelName)
-			if models.CurrentModel == modelName {
-				models.CurrentModel = ""
-			}
-			return true, nil
-		},
-	))
+func (s *store) RemoveModel(controllerName, modelName string) error {
+	panic("not implemented")
 }
 
 func updateAccountModels(
@@ -506,199 +308,128 @@ func updateAccountModels(
 }
 
 // UpdateAccount implements AccountUpdater.
-func (s *store) UpdateAccount(controllerName, accountName string, details AccountDetails) error {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountDetails(details); err != nil {
-		return errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if controllerAccounts == nil {
-		controllerAccounts = make(map[string]*ControllerAccounts)
-	}
-	accounts, ok := controllerAccounts[controllerName]
-	if !ok {
-		accounts = &ControllerAccounts{
-			Accounts: make(map[string]AccountDetails),
+func (s *store) UpdateAccount(controllerName string, details AccountDetails) error {
+	/*
+		if err := ValidateControllerName(controllerName); err != nil {
+			return errors.Trace(err)
 		}
-		controllerAccounts[controllerName] = accounts
-	}
-	if oldDetails, ok := accounts.Accounts[accountName]; ok && details == oldDetails {
-		return nil
-	}
-
-	// NOTE(axw) it is currently not valid for a client to have multiple
-	// logins for a controller. We may relax this in the future, but for
-	// now we are strict.
-	if len(accounts.Accounts) > 0 {
-		if _, ok := accounts.Accounts[accountName]; !ok {
-			return errors.AlreadyExistsf(
-				"alternative account for controller %s",
-				controllerName,
-			)
+		if err := ValidateAccountName(accountName); err != nil {
+			return errors.Trace(err)
 		}
-	}
+		if err := ValidateAccountDetails(details); err != nil {
+			return errors.Trace(err)
+		}
 
-	accounts.Accounts[accountName] = details
-	return errors.Trace(WriteAccountsFile(controllerAccounts))
-}
+		releaser, err := s.acquireLock()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer releaser.Release()
 
-// SetCurrentAccount implements AccountUpdater.
-func (s *store) SetCurrentAccount(controllerName, accountName string) error {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return errors.Trace(err)
-	}
+		controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if controllerAccounts == nil {
+			controllerAccounts = make(map[string]*ControllerAccounts)
+		}
+		accounts, ok := controllerAccounts[controllerName]
+		if !ok {
+			accounts = &ControllerAccounts{
+				Accounts: make(map[string]AccountDetails),
+			}
+			controllerAccounts[controllerName] = accounts
+		}
+		if oldDetails, ok := accounts.Accounts[accountName]; ok && details == oldDetails {
+			return nil
+		}
 
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer releaser.Release()
+		// NOTE(axw) it is currently not valid for a client to have multiple
+		// logins for a controller. We may relax this in the future, but for
+		// now we are strict.
+		if len(accounts.Accounts) > 0 {
+			if _, ok := accounts.Accounts[accountName]; !ok {
+				return errors.AlreadyExistsf(
+					"alternative account for controller %s",
+					controllerName,
+				)
+			}
+		}
 
-	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	accounts, ok := controllerAccounts[controllerName]
-	if !ok {
-		return errors.NotFoundf("account %s:%s", controllerName, accountName)
-	}
-	if accounts.CurrentAccount == accountName {
-		return nil
-	}
-	if _, ok := accounts.Accounts[accountName]; !ok {
-		return errors.NotFoundf("account %s:%s", controllerName, accountName)
-	}
-
-	accounts.CurrentAccount = accountName
-	return errors.Trace(WriteAccountsFile(controllerAccounts))
-}
-
-// AllAccounts implements AccountGetter.
-func (s *store) AllAccounts(controllerName string) (map[string]AccountDetails, error) {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	accounts, ok := controllerAccounts[controllerName]
-	if !ok {
-		return nil, errors.NotFoundf("accounts for controller %s", controllerName)
-	}
-	return accounts.Accounts, nil
-}
-
-// CurrentAccount implements AccountGetter.
-func (s *store) CurrentAccount(controllerName string) (string, error) {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer releaser.Release()
-
-	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	accounts, ok := controllerAccounts[controllerName]
-	if !ok || accounts.CurrentAccount == "" {
-		return "", errors.NotFoundf("current account for controller %s", controllerName)
-	}
-	return accounts.CurrentAccount, nil
+		accounts.Accounts[accountName] = details
+		return errors.Trace(WriteAccountsFile(controllerAccounts))
+	*/
+	panic("not implemented")
 }
 
 // AccountByName implements AccountGetter.
-func (s *store) AccountByName(controllerName, accountName string) (*AccountDetails, error) {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return nil, errors.Trace(err)
-	}
+func (s *store) AccountDetails(controllerName string) (*AccountDetails, error) {
+	/*
+		if err := ValidateControllerName(controllerName); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := ValidateAccountName(accountName); err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer releaser.Release()
+		releaser, err := s.acquireLock()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer releaser.Release()
 
-	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	accounts, ok := controllerAccounts[controllerName]
-	if !ok {
-		return nil, errors.NotFoundf("controller %s", controllerName)
-	}
-	details, ok := accounts.Accounts[accountName]
-	if !ok {
-		return nil, errors.NotFoundf("account %s:%s", controllerName, accountName)
-	}
-	return &details, nil
+		controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		accounts, ok := controllerAccounts[controllerName]
+		if !ok {
+			return nil, errors.NotFoundf("controller %s", controllerName)
+		}
+		details, ok := accounts.Accounts[accountName]
+		if !ok {
+			return nil, errors.NotFoundf("account %s:%s", controllerName, accountName)
+		}
+		return &details, nil
+	*/
+	panic("not implemented")
 }
 
 // RemoveAccount implements AccountRemover.
-func (s *store) RemoveAccount(controllerName, accountName string) error {
-	if err := ValidateControllerName(controllerName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateAccountName(accountName); err != nil {
-		return errors.Trace(err)
-	}
+func (s *store) RemoveAccount(controllerName string) error {
+	/*
+		if err := ValidateControllerName(controllerName); err != nil {
+			return errors.Trace(err)
+		}
+		if err := ValidateAccountName(accountName); err != nil {
+			return errors.Trace(err)
+		}
 
-	releaser, err := s.acquireLock()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer releaser.Release()
+		releaser, err := s.acquireLock()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer releaser.Release()
 
-	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	accounts, ok := controllerAccounts[controllerName]
-	if !ok {
-		return errors.NotFoundf("controller %s", controllerName)
-	}
-	if _, ok := accounts.Accounts[accountName]; !ok {
-		return errors.NotFoundf("account %s:%s", controllerName, accountName)
-	}
+		controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		accounts, ok := controllerAccounts[controllerName]
+		if !ok {
+			return errors.NotFoundf("controller %s", controllerName)
+		}
+		if _, ok := accounts.Accounts[accountName]; !ok {
+			return errors.NotFoundf("account %s:%s", controllerName, accountName)
+		}
 
-	delete(accounts.Accounts, accountName)
-	if accounts.CurrentAccount == accountName {
-		accounts.CurrentAccount = ""
-	}
-	return errors.Trace(WriteAccountsFile(controllerAccounts))
+		delete(accounts.Accounts, accountName)
+		if accounts.CurrentAccount == accountName {
+			accounts.CurrentAccount = ""
+		}
+		return errors.Trace(WriteAccountsFile(controllerAccounts))
+	*/
+	panic("not implemented")
 }
 
 // UpdateCredential implements CredentialUpdater.

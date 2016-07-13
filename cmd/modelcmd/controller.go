@@ -76,7 +76,6 @@ type ControllerCommandBase struct {
 
 	store          jujuclient.ClientStore
 	controllerName string
-	accountName    string
 
 	// opener is the strategy used to open the API connection.
 	opener APIOpener
@@ -97,23 +96,14 @@ func (c *ControllerCommandBase) SetControllerName(controllerName string) error {
 	if _, err := c.ClientStore().ControllerByName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	accountName, err := c.store.CurrentAccount(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
+	// TODO(axw) set accountDetails
 	c.controllerName = controllerName
-	c.accountName = accountName
 	return nil
 }
 
 // ControllerName implements the ControllerCommand interface.
 func (c *ControllerCommandBase) ControllerName() string {
 	return c.controllerName
-}
-
-// AccountName implements the ControllerCommand interface.
-func (c *ControllerCommandBase) AccountName() string {
-	return c.accountName
 }
 
 // SetAPIOpener specifies the strategy used by the command to open
@@ -166,14 +156,11 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 		}
 		return nil, errors.Trace(ErrNotLoggedInToController)
 	}
-	if c.accountName == "" {
-		return nil, errors.Trace(ErrNoAccountSpecified)
-	}
 	opener := c.opener
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	return opener.Open(c.store, c.controllerName, c.accountName, "")
+	return opener.Open(c.store, c.controllerName, "")
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
@@ -181,16 +168,15 @@ func (c *ControllerCommandBase) ModelUUIDs(modelNames []string) ([]string, error
 	var result []string
 	store := c.ClientStore()
 	controllerName := c.ControllerName()
-	accountName := c.AccountName()
 	for _, modelName := range modelNames {
-		model, err := store.ModelByName(controllerName, accountName, modelName)
+		model, err := store.ModelByName(controllerName, modelName)
 		if errors.IsNotFound(err) {
 			// The model isn't known locally, so query the models available in the controller.
 			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
-			if err := c.RefreshModels(store, controllerName, accountName); err != nil {
+			if err := c.RefreshModels(store, controllerName); err != nil {
 				return nil, errors.Annotatef(err, "refreshing model %q", modelName)
 			}
-			model, err = store.ModelByName(controllerName, accountName, modelName)
+			model, err = store.ModelByName(controllerName, modelName)
 		}
 		if err != nil {
 			return nil, errors.Annotatef(err, "model %q not found", modelName)

@@ -92,7 +92,7 @@ type ShowControllerDetails struct {
 	Details ControllerDetails `yaml:"details,omitempty" json:"details,omitempty"`
 
 	// Accounts is a collection of accounts for this controller.
-	Accounts map[string]*AccountDetails `yaml:"accounts,omitempty" json:"accounts,omitempty"`
+	Account *AccountDetails `yaml:"accounts,omitempty" json:"accounts,omitempty"`
 
 	// CurrentAccount is the name of the current account for this controller.
 	CurrentAccount string `yaml:"current-account,omitempty" json:"current-account,omitempty"`
@@ -171,49 +171,20 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 }
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails) {
-	accounts, err := c.store.AllAccounts(controllerName)
+	storeDetails, err := c.store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
-
-	if len(accounts) > 0 {
-		controller.Accounts = make(map[string]*AccountDetails)
-		for accountName, account := range accounts {
-			details := &AccountDetails{User: account.User}
-			controller.Accounts[accountName] = details
-			if c.showPasswords {
-				details.Password = account.Password
-			}
-			if err := c.convertModelsForShow(controllerName, accountName, details); err != nil {
-				controller.Errors = append(controller.Errors, err.Error())
-			}
-		}
+	if storeDetails == nil {
+		return
 	}
-
-	controller.CurrentAccount, err = c.store.CurrentAccount(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
-		controller.Errors = append(controller.Errors, err.Error())
+	details := &AccountDetails{
+		User: storeDetails.User,
 	}
-}
-
-func (c *showControllerCommand) convertModelsForShow(controllerName, accountName string, account *AccountDetails) error {
-	models, err := c.store.AllModels(controllerName, accountName)
-	if errors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return err
+	if c.showPasswords {
+		details.Password = storeDetails.Password
 	}
-	if len(models) > 0 {
-		account.Models = make(map[string]ModelDetails)
-		for modelName, model := range models {
-			account.Models[modelName] = ModelDetails{model.ModelUUID}
-		}
-	}
-	account.CurrentModel, err = c.store.CurrentModel(controllerName, accountName)
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-	return nil
+	controller.Account = details
 }
 
 func (c *showControllerCommand) convertBootstrapConfigForShow(controllerName string, controller *ShowControllerDetails) {

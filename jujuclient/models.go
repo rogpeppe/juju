@@ -65,15 +65,15 @@ type modelsCollection struct {
 // ControllerAccountModels stores per-controller account-model information.
 type ControllerAccountModels struct {
 	// AccountModels is the collection of account-models for the
-	// controller.
+	// controller, indexed by username.
 	AccountModels map[string]*AccountModels `yaml:"accounts"`
 }
 
 // AccountModels stores per-account model information.
 type AccountModels struct {
-	// Models is the collection of models for the account. This should
-	// be treated as a cache only, and not the complete set of models
-	// for the account.
+	// Models is the collection of models for the account, indexed
+	// by model name. This should be treated as a cache only, and
+	// not the complete set of models for the account.
 	Models map[string]ModelDetails `yaml:"models"`
 
 	// CurrentModel is the name of the active model for the account.

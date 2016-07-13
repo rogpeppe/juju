@@ -17,19 +17,18 @@ type MemStore struct {
 	Controllers           map[string]jujuclient.ControllerDetails
 	CurrentControllerName string
 	Models                map[string]jujuclient.ControllerAccountModels
-	Accounts              map[string]*jujuclient.ControllerAccounts
+	Accounts              map[string]*jujuclient.AccountDetails
 	Credentials           map[string]cloud.CloudCredential
 	BootstrapConfig       map[string]jujuclient.BootstrapConfig
 }
 
 func NewMemStore() *MemStore {
 	return &MemStore{
-		make(map[string]jujuclient.ControllerDetails),
-		"",
-		make(map[string]jujuclient.ControllerAccountModels),
-		make(map[string]*jujuclient.ControllerAccounts),
-		make(map[string]cloud.CloudCredential),
-		make(map[string]jujuclient.BootstrapConfig),
+		Controllers: make(map[string]jujuclient.ControllerDetails),
+		Models: make(map[string]jujuclient.ControllerAccountModels),
+		Accounts: make(map[string]*jujuclient.AccountDetails),
+		Credentials: make(map[string]cloud.CloudCredential),
+		BootstrapConfig: make(map[string]jujuclient.BootstrapConfig),
 	}
 }
 
@@ -107,11 +106,8 @@ func (c *MemStore) RemoveController(name string) error {
 }
 
 // UpdateModel implements ModelUpdater.
-func (c *MemStore) UpdateModel(controller, account, model string, details jujuclient.ModelDetails) error {
+func (c *MemStore) UpdateModel(controller, model string, details jujuclient.ModelDetails) error {
 	if err := jujuclient.ValidateControllerName(controller); err != nil {
-		return err
-	}
-	if err := jujuclient.ValidateAccountName(account); err != nil {
 		return err
 	}
 	if err := jujuclient.ValidateModelName(model); err != nil {
