@@ -134,13 +134,13 @@ type ModelUpdater interface {
 	//
 	// If the model does not already exist, it will be added.
 	// Otherwise, it will be overwritten with the new details.
-	UpdateModel(controllerName, accountName, modelName string, details ModelDetails) error
+	UpdateModel(controllerName, modelName string, details ModelDetails) error
 
 	// SetCurrentModel sets the name of the current model for
 	// the specified controller and account. If there exists no
 	// model with the specified names, an error satisfying
 	// errors.IsNotFound will be returned.
-	SetCurrentModel(controllerName, accountName, modelName string) error
+	SetCurrentModel(controllerName, modelName string) error
 }
 
 // ModelRemover removes models.
@@ -149,7 +149,7 @@ type ModelRemover interface {
 	// and model names from the models collection. If there is no model
 	// with the specified names, an errors satisfying errors.IsNotFound
 	// will be returned.
-	RemoveModel(controllerName, accountName, modelName string) error
+	RemoveModel(controllerName, modelName string) error
 }
 
 // ModelGetter gets models.
@@ -160,19 +160,19 @@ type ModelGetter interface {
 	// If there is no controller or account with the specified
 	// names, or no models cached for the controller and account,
 	// an error satisfying errors.IsNotFound will be returned.
-	AllModels(controllerName, accountName string) (map[string]ModelDetails, error)
+	AllModels(controllerName string) (map[string]ModelDetails, error)
 
 	// CurrentModel returns the name of the current model for
 	// the specified controller and account. If there is no current
 	// model for the controller and account, an error satisfying
 	// errors.IsNotFound is returned.
-	CurrentModel(controllerName, accountName string) (string, error)
+	CurrentModel(controllerName string) (string, error)
 
 	// ModelByName returns the model with the specified controller,
 	// account, and model names. If there exists no model with the
 	// specified names, an error satisfying errors.IsNotFound will
 	// be returned.
-	ModelByName(controllerName, accountName, modelName string) (*ModelDetails, error)
+	ModelByName(controllerName, modelName string) (*ModelDetails, error)
 }
 
 // AccountUpdater stores account details.
@@ -185,13 +185,7 @@ type AccountUpdater interface {
 	// It is currently not permitted to create multiple account entries
 	// for a controller; doing so will result in an error satisfying
 	// errors.IsAlreadyExists.
-	UpdateAccount(controllerName, accountName string, details AccountDetails) error
-
-	// SetCurrentAccount sets the name of the current account for
-	// the specified controller. If there exists no account with
-	// the specified names, an error satisfying errors.IsNotFound
-	// will be returned.
-	SetCurrentAccount(controllerName, accountName string) error
+	UpdateAccount(controllerName string, details AccountDetails) error
 }
 
 // AccountRemover removes accounts.
@@ -200,28 +194,15 @@ type AccountRemover interface {
 	// names from the accounts collection. If there is no account with the
 	// specified names, an errors satisfying errors.IsNotFound will be
 	// returned.
-	RemoveAccount(controllerName, accountName string) error
+	RemoveAccount(controllerName string) error
 }
 
 // AccountGetter gets accounts.
 type AccountGetter interface {
-	// AllAccounts gets all accounts for the specified controller.
-	//
-	// If there is no controller with the specified name, or
-	// no accounts cached for the controller, an error satisfying
-	// errors.IsNotFound will be returned.
-	AllAccounts(controllerName string) (map[string]AccountDetails, error)
-
-	// CurrentAccount returns the name of the current account for
-	// the specified controller. If there is no current account
-	// for the controller, an error satisfying errors.IsNotFound
-	// is returned.
-	CurrentAccount(controllerName string) (string, error)
-
 	// AccountByName returns the account with the specified controller
 	// and account names. If there exists no account with the specified
 	// names, an error satisfying errors.IsNotFound will be returned.
-	AccountByName(controllerName, accountName string) (*AccountDetails, error)
+	AccountDetails(controllerName string) (*AccountDetails, error)
 }
 
 // CredentialGetter gets credentials.

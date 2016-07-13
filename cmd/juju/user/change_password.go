@@ -104,10 +104,12 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-	accountDetails, err := store.AccountByName(controllerName, accountName)
+	accountDetails, err := store.AccountDetails(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
+	// TODO(axw) nil out accountDetails if accountDetails.User
+	// is not the same as c.User after canonicalization.
 
 	if accountDetails != nil && accountDetails.Macaroon == "" {
 		// Generate a macaroon first to guard against I/O failures

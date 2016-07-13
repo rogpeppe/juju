@@ -73,11 +73,11 @@ func (c *JujuCommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
 	c.apiOpenFunc = apiOpen
 }
 
-func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName, accountName string) (ModelAPI, error) {
+func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
 	if c.modelApi != nil {
 		return c.modelApi, nil
 	}
-	conn, err := c.NewAPIRoot(store, controllerName, accountName, "")
+	conn, err := c.NewAPIRoot(store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,10 +89,10 @@ func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName,
 // model or controller.
 func (c *JujuCommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
-	controllerName, accountName, modelName string,
+	controllerName, modelName string,
 ) (api.Connection, error) {
 	params, err := c.NewAPIConnectionParams(
-		store, controllerName, accountName, modelName,
+		store, controllerName, modelName,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,13 +106,13 @@ func (c *JujuCommandBase) NewAPIRoot(
 // the same arguments.
 func (c *JujuCommandBase) NewAPIConnectionParams(
 	store jujuclient.ClientStore,
-	controllerName, accountName, modelName string,
+	controllerName, modelName string,
 ) (juju.NewAPIConnectionParams, error) {
 	if err := c.initAPIContext(); err != nil {
 		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
 	return newAPIConnectionParams(
-		store, controllerName, accountName, modelName,
+		store, controllerName, modelName,
 		c.apiContext.BakeryClient, c.apiOpen,
 	)
 }
@@ -149,17 +149,17 @@ func (c *JujuCommandBase) APIOpen(info *api.Info, opts api.DialOpts) (api.Connec
 
 // RefreshModels refreshes the local models cache for the current user
 // on the specified controller.
-func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName, accountName string) error {
-	accountDetails, err := store.AccountByName(controllerName, accountName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	modelManager, err := c.modelAPI(store, controllerName, accountName)
+func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controllerName string) error {
+	modelManager, err := c.modelAPI(store, controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer modelManager.Close()
+
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	models, err := modelManager.ListModels(accountDetails.User)
 	if err != nil {
@@ -167,7 +167,7 @@ func (c *JujuCommandBase) RefreshModels(store jujuclient.ClientStore, controller
 	}
 	for _, model := range models {
 		modelDetails := jujuclient.ModelDetails{model.UUID}
-		if err := store.UpdateModel(controllerName, accountName, model.Name, modelDetails); err != nil {
+		if err := store.UpdateModel(controllerName, model.Name, modelDetails); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -234,7 +234,6 @@ func (w *baseCommandWrapper) Init(args []string) error {
 func newAPIConnectionParams(
 	store jujuclient.ClientStore,
 	controllerName,
-	accountName,
 	modelName string,
 	bakery *httpbakery.Client,
 	apiOpen api.OpenFunc,
@@ -242,17 +241,16 @@ func newAPIConnectionParams(
 	if controllerName == "" {
 		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
 	}
-	var accountDetails *jujuclient.AccountDetails
-	if accountName != "" {
-		var err error
-		accountDetails, err = store.AccountByName(controllerName, accountName)
-		if err != nil {
-			return juju.NewAPIConnectionParams{}, errors.Trace(err)
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return juju.NewAPIConnectionParams{}, ErrNoAccountSpecified
 		}
+		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
 	var modelUUID string
 	if modelName != "" {
-		modelDetails, err := store.ModelByName(controllerName, accountName, modelName)
+		modelDetails, err := store.ModelByName(controllerName, modelName)
 		if err != nil {
 			return juju.NewAPIConnectionParams{}, errors.Trace(err)
 		}

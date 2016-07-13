@@ -22,7 +22,7 @@ func JujuAccountsPath() string {
 
 // ReadAccountsFile loads all accounts defined in a given file.
 // If the file is not found, it is not an error.
-func ReadAccountsFile(file string) (map[string]*ControllerAccounts, error) {
+func ReadAccountsFile(file string) (map[string]AccountDetails, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -39,7 +39,7 @@ func ReadAccountsFile(file string) (map[string]*ControllerAccounts, error) {
 
 // WriteAccountsFile marshals to YAML details of the given accounts
 // and writes it to the accounts file.
-func WriteAccountsFile(controllerAccounts map[string]*ControllerAccounts) error {
+func WriteAccountsFile(controllerAccounts map[string]AccountDetails) error {
 	data, err := yaml.Marshal(accountsCollection{controllerAccounts})
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal accounts")
@@ -48,7 +48,7 @@ func WriteAccountsFile(controllerAccounts map[string]*ControllerAccounts) error 
 }
 
 // ParseAccounts parses the given YAML bytes into accounts metadata.
-func ParseAccounts(data []byte) (map[string]*ControllerAccounts, error) {
+func ParseAccounts(data []byte) (map[string]AccountDetails, error) {
 	var result accountsCollection
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
@@ -58,14 +58,5 @@ func ParseAccounts(data []byte) (map[string]*ControllerAccounts, error) {
 }
 
 type accountsCollection struct {
-	ControllerAccounts map[string]*ControllerAccounts `yaml:"controllers"`
-}
-
-// ControllerAccounts stores per-controller account information.
-type ControllerAccounts struct {
-	// Accounts is the collection of accounts for the controller.
-	Accounts map[string]AccountDetails `yaml:"accounts"`
-
-	// CurrentAccount is the name of the active account for the controller.
-	CurrentAccount string `yaml:"current-account,omitempty"`
+	ControllerAccounts map[string]AccountDetails `yaml:"controllers"`
 }
