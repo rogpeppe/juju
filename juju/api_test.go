@@ -33,6 +33,13 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+type NewAPIClientMacaroonSuite struct {
+}
+
+func (s *NewAPIClientMacaroonSuite) TestWithMacaroonAuth(c *gc.C) {
+
+}
+
 type NewAPIClientSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	testing.MgoSuite

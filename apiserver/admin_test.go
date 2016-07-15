@@ -32,33 +32,27 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type baseLoginSuite struct {
+type loginSuite struct {
 	jujutesting.JujuConnSuite
 	setAdminApi func(*apiserver.Server)
 }
 
-type loginSuite struct {
-	baseLoginSuite
-}
-
 var _ = gc.Suite(&loginSuite{
-	baseLoginSuite{
-		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 3)
-		},
+	setAdminApi: func(srv *apiserver.Server) {
+		apiserver.SetAdminApiVersions(srv, 3)
 	},
 })
 
-func (s *baseLoginSuite) SetUpTest(c *gc.C) {
+func (s *loginSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 }
 
-func (s *baseLoginSuite) setupServer(c *gc.C) (api.Connection, func()) {
+func (s *loginSuite) setupServer(c *gc.C) (api.Connection, func()) {
 	return s.setupServerForEnvironment(c, s.State.ModelTag())
 }
 
-func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
+func (s *loginSuite) setupServerForEnvironment(c *gc.C, modelTag names.ModelTag) (api.Connection, func()) {
 	info, cleanup := s.setupServerForEnvironmentWithValidator(c, modelTag, nil)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,7 +62,7 @@ func (s *baseLoginSuite) setupServerForEnvironment(c *gc.C, modelTag names.Model
 	}
 }
 
-func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
+func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 	info, cleanup := s.setupServerWithValidator(c, nil)
@@ -76,6 +70,73 @@ func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	info.Password = password
 	info.Nonce = "fake_nonce"
 	return info, cleanup
+}
+
+func (s *loginSuite) TestClientLoginToEnvironment(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	info := s.APIInfo(c)
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+
+	client := apiState.Client()
+	_, err = client.GetModelConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestClientLoginToController(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	info := s.APIInfo(c)
+	info.ModelTag = names.ModelTag{}
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+
+	client := apiState.Client()
+	_, err = client.GetModelConstraints()
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `logged in to server, no model, "Client" not supported`,
+		Code:    "not supported",
+	})
+}
+
+func (s *loginSuite) TestClientLoginToControllerNoAccessToControllerEnv(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		NoModelUser: true,
+		Password:    password,
+	})
+
+	info := s.APIInfo(c)
+	info.Tag = user.Tag()
+	info.Password = password
+	info.ModelTag = names.ModelTag{}
+	apiState, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiState.Close()
+	// The user now has last login updated.
+	err = user.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	lastLogin, err := user.LastLogin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lastLogin, gc.NotNil)
+}
+
+func (s *loginSuite) TestClientLoginToRootOldClient(c *gc.C) {
+	_, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	info := s.APIInfo(c)
+	info.ModelTag = names.ModelTag{}
+	_, err := api.OpenWithVersion(info, api.DialOpts{}, 2)
+	c.Assert(err, gc.ErrorMatches, ".*this version of Juju does not support login from old clients.*")
 }
 
 func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
@@ -182,7 +243,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 }
 
-func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
+func (s *loginSuite) runLoginSetsLogIdentifier(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -250,7 +311,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	c.Assert(hostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
 
-func (s *baseLoginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
+func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -544,7 +605,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 
 type validationChecker func(c *gc.C, err error, st api.Connection)
 
-func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
+func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
 	info, cleanup := s.setupServerWithValidator(c, validator)
 	defer cleanup()
 
@@ -565,13 +626,13 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 	checker(c, err, st)
 }
 
-func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.setupServerForEnvironmentWithValidator(c, env.ModelTag(), validator)
 }
 
-func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTag names.ModelTag, validator apiserver.LoginValidator) (*api.Info, func()) {
+func (s *loginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTag names.ModelTag, validator apiserver.LoginValidator) (*api.Info, func()) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
@@ -602,7 +663,7 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 	}
 }
 
-func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connection {
+func (s *loginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connection {
 	info.Tag = nil
 	info.Password = ""
 	info.SkipLogin = true
@@ -622,6 +683,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.AuthTag(), jc.DeepEquals, adminUser)
 
 	s.assertRemoteEnvironment(c, st, s.State.ModelTag())
 }
@@ -838,14 +900,12 @@ func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 	info.ModelTag = names.ModelTag{}
 
 	client, err := api.Open(info, api.DialOpts{})
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "invalid entity name or password",
-		Code:    "unauthorized access",
-	})
-	c.Assert(client, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer client.Close()
+	c.Assert(client.AuthTag(), jc.DeepEquals, names.NewUserTag("test@somewhere"))
 }
 
-func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
 	s.AddModelUser(c, "test@somewhere")
 	s.DischargerLogin = func() string {
 		return "test@somewhere"

@@ -88,9 +88,10 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		}
 	}
 
-	serverOnlyLogin := a.root.modelUUID == ""
+	controllerOnlyLogin := a.root.modelUUID == ""
+	logger.Infof("controllerOnlyLogin: %v", controllerOnlyLogin)
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, !serverOnlyLogin, a.srv.authCtxt)
+	entity, lastConnection, err := doCheckCreds(a.root.state, req, !controllerOnlyLogin, a.srv.authCtxt)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResultV1{
@@ -147,18 +148,22 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	var maybeUserInfo *params.AuthUserInfo
 	var modelUser *state.ModelUser
 	// Send back user info if user
-	if isUser && !serverOnlyLogin {
+	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
 		modelUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
-		if err != nil {
-			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return fail, errors.Annotatef(err, "cannot get logged-in user info", entity.Tag())
 		}
-		maybeUserInfo.ReadOnly = modelUser.IsReadOnly()
-		if maybeUserInfo.ReadOnly {
-			logger.Debugf("model user %s is READ ONLY", entity.Tag())
+		if modelUser != nil {
+			// If we're doing a controller-only login, there's not necessarily
+			// an associated model user (although that will change).
+			maybeUserInfo.ReadOnly = modelUser.IsReadOnly()
+			if maybeUserInfo.ReadOnly {
+				logger.Debugf("model user %s is READ ONLY", entity.Tag())
+			}
 		}
 	}
 
@@ -185,7 +190,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 
 	// For sufficiently modern login versions, stop serving the
 	// controller model at the root of the API.
-	if serverOnlyLogin {
+	if controllerOnlyLogin {
 		authedApi = newRestrictedRoot(authedApi)
 		// Remove the ModelTag from the response as there is no
 		// model here.
@@ -272,12 +277,17 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool,
 			return nil, nil, errors.Trace(err)
 		}
 	}
-	var entityFinder authentication.EntityFinder = st
+	// XXX The following line is where the user accounts list in the state
+	// is used as the list of users that are allowed to log into the state server.
+	var entityFinder authentication.EntityFinder = &controllerUserEntityFinder{st}
 	if lookForModelUser {
 		// When looking up model users, use a custom
 		// entity finder that looks up both the local user (if the user
 		// tag is in the local domain) and the model user.
 		entityFinder = modelUserEntityFinder{st}
+		logger.Infof("model login")
+	} else {
+		logger.Infof("controller only login")
 	}
 	entity, err := authenticator.Authenticate(entityFinder, tag, req)
 	if err != nil {
@@ -295,6 +305,50 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool,
 		lastLogin = &userLastLogin
 	}
 	return entity, lastLogin, nil
+}
+
+type controllerUserEntityFinder struct {
+	st *state.State
+}
+
+func (f *controllerUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	e, err := f.st.FindEntity(tag)
+	if err == nil {
+		return e, nil
+	}
+	if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	u, ok := tag.(names.UserTag)
+	if !ok || u.IsLocal() {
+		// Agents and non-local users are never accepted
+		// unless they have an account.
+		logger.Infof("denying access to non-agent or local user %v", tag)
+		return nil, errors.Trace(err)
+	}
+	logger.Infof("external user is allowed controller-only access")
+	// External users are always allowed access to the controller-only API.
+	//
+	// TODO(rogpeppe) remove this - it's a hack to stand in for the
+	// fact that we don't have group support.
+	// In the future, we should check that the authenticated
+	// user is accepted in the controller model regardless of whether
+	// it's a controller-only login - doLogin should restrict
+	// the facade for controller-only logins and only allow them
+	// if the user has appropriate permissions.
+	//
+	// It would also be good to separate last-login times from
+	// account information so that we can keep a record of who
+	// has logged in even if they don't have an account.
+	return externalEntity{tag}, nil
+}
+
+type externalEntity struct {
+	tag names.Tag
+}
+
+func (e externalEntity) Tag() names.Tag {
+	return e.tag
 }
 
 // loginEntity defines the interface needed to log in as a user.
