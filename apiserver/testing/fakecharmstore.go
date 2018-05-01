@@ -15,8 +15,8 @@ import (
 	"gopkg.in/juju/charmrepo.v4"
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/charmstore.v5"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakerytest"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/testcharms"

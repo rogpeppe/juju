@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/utils/clock"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon.v2"
 )
 

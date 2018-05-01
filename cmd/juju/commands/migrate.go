@@ -6,7 +6,7 @@ package commands
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"

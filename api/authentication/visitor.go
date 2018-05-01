@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 const authMethod = "juju_userpass"

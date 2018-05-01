@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 )
 

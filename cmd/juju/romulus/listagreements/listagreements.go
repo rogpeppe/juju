@@ -14,7 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )

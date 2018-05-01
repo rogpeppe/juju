@@ -13,7 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/jujuclient"
 )

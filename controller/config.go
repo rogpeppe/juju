@@ -15,7 +15,7 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/cert"
 )
