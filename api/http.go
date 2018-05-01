@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )

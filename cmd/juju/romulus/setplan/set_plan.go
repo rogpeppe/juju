@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/plan"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/modelcmd"

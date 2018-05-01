@@ -15,7 +15,7 @@ import (
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")

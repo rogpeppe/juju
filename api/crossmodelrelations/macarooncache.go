@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/utils/clock"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 )
 
 // MacaroonCache contains macaroons which are removed at a specified interval.

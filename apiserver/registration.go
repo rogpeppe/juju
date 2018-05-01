@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"

@@ -17,7 +17,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
 	jjjtesting "github.com/juju/juju/juju/testing"

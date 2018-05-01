@@ -14,7 +14,7 @@ import (
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
