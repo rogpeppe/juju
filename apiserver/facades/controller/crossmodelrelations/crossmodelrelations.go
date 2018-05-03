@@ -251,10 +251,11 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
 	}
 	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
-		SourceModelUUID: sourceModelTag.Id(), Username: username,
-		OfferUUID:   appOffer.OfferUUID,
-		RelationId:  localRel.Id(),
-		RelationKey: localRel.Tag().Id(),
+		SourceModelUUID: sourceModelTag.Id(),
+		Username:        username,
+		OfferUUID:       appOffer.OfferUUID,
+		RelationId:      localRel.Id(),
+		RelationKey:     localRel.Tag().Id(),
 	})
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return nil, errors.Annotate(err, "adding offer connection details")

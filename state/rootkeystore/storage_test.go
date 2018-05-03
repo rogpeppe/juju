@@ -1,7 +1,7 @@
 // Copyright 2014-2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package bakerystorage
+package rootkeystore
 
 import (
 	"encoding/json"
@@ -10,8 +10,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2/bakery"
-	"gopkg.in/macaroon-bakery.v2/bakery/mgostorage"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -44,11 +43,6 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
 		},
-		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
-			s.AddCall("GetStorage", coll, expireAfter)
-			s.PopNoErr()
-			return s.memStorage
-		},
 	}
 }
 
@@ -76,7 +70,6 @@ func (s *StorageSuite) TestGet(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	rootKey, id, err := store.RootKey()
 	c.Assert(err, jc.ErrorIsNil)
 
 	item, err := store.Get(id)
@@ -130,6 +123,10 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 type mockCollection struct {
 	mongo.WriteCollection
 	*gitjujutesting.Stub
+}
+
+func (c *mockCollection) Underlying() *mgo.Collection {
+	return new(mgo.Collection)
 }
 
 func (c *mockCollection) FindId(id interface{}) mongo.Query {
